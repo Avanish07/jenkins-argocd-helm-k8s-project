@@ -1,55 +1,53 @@
 pipeline {
   agent any 
-
   stages {
     stage('Checkout') {
       steps {
         sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
       }
     }
     stage('Build and Test') {
       steps {
         sh 'ls -ltr'
-        // build the project and create a JAR file
         sh 'cd spring-boot-app && mvn clean package'
       }
     }
     stage('Build and Push Docker Image') {
-    environment {
-      DOCKER_IMAGE = "helloavnish/ultimate-cicd:${BUILD_NUMBER}"
-      REGISTRY_CREDENTIALS = credentials('docker-cred')
-    }
-    steps {
-      script {
-        sh 'cd spring-boot-app && podman build -t ${DOCKER_IMAGE} .'
-        sh '''
-        echo $REGISTRY_CREDENTIALS_PSW | podman login docker.io -u $REGISTRY_CREDENTIALS_USR --password-stdin
-        '''
-        sh 'podman push ${DOCKER_IMAGE}'
+      environment {
+        DOCKER_IMAGE = "helloavnish/ultimate-cicd:${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+      }
+      steps {
+        script {
+          sh 'cd spring-boot-app && podman build -t ${DOCKER_IMAGE} .'
+          sh '''
+          echo $REGISTRY_CREDENTIALS_PSW | podman login docker.io -u $REGISTRY_CREDENTIALS_USR --password-stdin
+          '''
+          sh 'podman push ${DOCKER_IMAGE}'
+        }
       }
     }
-  }
     stage('Update Deployment File') {
-        environment {
-            GIT_REPO_NAME = "jenkins-argocd-helm-k8s-project"
-            GIT_USER_NAME = "Avanish07"
+      environment {
+        GIT_REPO_NAME = "jenkins-argocd-manifests"
+        GIT_USER_NAME = "Avanish07"
+      }
+      steps {
+        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+          sh '''
+            rm -rf jenkins-argocd-manifests
+            git clone https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git
+            cd jenkins-argocd-manifests
+            git config user.email "abc.xyz@gmail.com"
+            git config user.name "Avnish Pathak"
+            sed -i "s|helloavnish/ultimate-cicd:.*|helloavnish/ultimate-cicd:${BUILD_NUMBER}|g" spring-boot-app-manifests/deployment.yml
+            cat spring-boot-app-manifests/deployment.yml
+            git add spring-boot-app-manifests/deployment.yml
+            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+          '''
         }
-        steps {
-            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    git checkout main
-                    git pull origin main
-                    git config user.email "abc.xyz@gmail.com"
-                    git config user.name "Avnish Pathak"
-                    BUILD_NUMBER=${BUILD_NUMBER}
-                    sed -i "s|helloavnish/ultimate-cicd:.*|helloavnish/ultimate-cicd:${BUILD_NUMBER}|g" spring-boot-app-manifests/deployment.yml
-                    git add spring-boot-app-manifests/deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                '''
-            }
-        }
+      }
     }
   }
 }
