@@ -31,22 +31,21 @@ pipeline {
       environment {
         GIT_REPO_NAME = "jenkins-argocd-manifests"
         GIT_USER_NAME = "Avanish07"
-        SHORT_COMMIT = "${GIT_COMMIT.take(7)}"
       }
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          sh '''
+          sh """
             rm -rf jenkins-argocd-manifests
             git clone https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git
             cd jenkins-argocd-manifests
             git config user.email "abc.xyz@gmail.com"
             git config user.name "Avnish Pathak"
-            sed -i "s|helloavnish/ultimate-cicd:.*|helloavnish/ultimate-cicd:${BUILD_NUMBER}-${GIT_COMMIT.take(7)}|g" spring-boot-app-manifests/deployment.yml
+            sed -i "s|helloavnish/ultimate-cicd:.*|helloavnish/ultimate-cicd:${BUILD_NUMBER}-${GIT_COMMIT[0..6]}|g" spring-boot-app-manifests/deployment.yml
             cat spring-boot-app-manifests/deployment.yml
             git add spring-boot-app-manifests/deployment.yml
             git commit -m "Update deployment image to version ${BUILD_NUMBER}"
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-          '''
+          """
         }
       }
     }
