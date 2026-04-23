@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: spring-boot-app
-        image: helloavnish/ultimate-cicd:39
+        image: helloavnish/ultimate-cicd:40
         ports:
         - containerPort: 8080
